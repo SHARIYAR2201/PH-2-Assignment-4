@@ -38,3 +38,16 @@ export const env = {
 
   corsOrigin: process.env.CORS_ORIGIN || '*',
 };
+
+// Fail fast in production if critical secrets are missing/still using dev defaults.
+export const assertRequiredEnv = (): void => {
+  if (env.nodeEnv !== 'production') return;
+  const missing: string[] = [];
+  if (!env.databaseUrl) missing.push('DATABASE_URL');
+  if (!process.env.JWT_ACCESS_SECRET) missing.push('JWT_ACCESS_SECRET');
+  if (!process.env.JWT_REFRESH_SECRET) missing.push('JWT_REFRESH_SECRET');
+  if (!env.stripe.secretKey) missing.push('STRIPE_SECRET_KEY');
+  if (missing.length) {
+    throw new Error(`Missing required environment variables in production: ${missing.join(', ')}`);
+  }
+};

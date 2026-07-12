@@ -1,9 +1,10 @@
 import app from './app';
-import { env } from './config/env';
+import { env, assertRequiredEnv } from './config/env';
 import { prisma } from './lib/prisma';
 
 async function main() {
   try {
+    assertRequiredEnv();
     await prisma.$connect();
     // eslint-disable-next-line no-console
     console.log('✅ Database connected successfully');
