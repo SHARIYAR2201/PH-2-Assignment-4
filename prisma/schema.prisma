@@ -1,0 +1,171 @@
+// GearUp - Prisma Schema
+// Rent Sports & Outdoor Gear Instantly
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum RentalStatus {
+  PLACED
+  CONFIRMED
+  CANCELLED
+  PAID
+  PICKED_UP
+  RETURNED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum PaymentProvider {
+  STRIPE
+  SSLCOMMERZ
+}
+
+model User {
+  id        String     @id @default(uuid())
+  name      String
+  email     String     @unique
+  password  String
+  phone     String?
+  role      Role       @default(CUSTOMER)
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  gearItems     GearItem[]     @relation("ProviderGear")
+  rentalOrders  RentalOrder[]  @relation("CustomerRentals")
+  reviews       Review[]       @relation("CustomerReviews")
+  payments      Payment[]      @relation("CustomerPayments")
+
+  @@map("users")
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  gearItems GearItem[]
+
+  @@map("categories")
+}
+
+model GearItem {
+  id             String   @id @default(uuid())
+  title          String
+  description    String
+  brand          String?
+  pricePerDay    Decimal  @db.Decimal(10, 2)
+  quantityTotal  Int      @default(1)
+  quantityInUse  Int      @default(0)
+  images         String[]
+  isAvailable    Boolean  @default(true)
+  isDeleted      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  providerId String
+  provider   User   @relation("ProviderGear", fields: [providerId], references: [id])
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  rentalItems RentalItem[]
+  reviews     Review[]
+
+  @@map("gear_items")
+}
+
+model RentalOrder {
+  id            String       @id @default(uuid())
+  status        RentalStatus @default(PLACED)
+  startDate     DateTime
+  endDate       DateTime
+  totalAmount   Decimal      @db.Decimal(10, 2)
+  cancelReason  String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  customerId String
+  customer   User   @relation("CustomerRentals", fields: [customerId], references: [id])
+
+  items    RentalItem[]
+  payments Payment[]
+
+  @@map("rental_orders")
+}
+
+model RentalItem {
+  id       String  @id @default(uuid())
+  quantity Int     @default(1)
+  pricePerDay Decimal @db.Decimal(10, 2)
+  subtotal Decimal @db.Decimal(10, 2)
+
+  rentalOrderId String
+  rentalOrder   RentalOrder @relation(fields: [rentalOrderId], references: [id], onDelete: Cascade)
+
+  gearItemId String
+  gearItem   GearItem @relation(fields: [gearItemId], references: [id])
+
+  @@map("rental_items")
+}
+
+model Payment {
+  id              String          @id @default(uuid())
+  transactionId   String          @unique
+  amount          Decimal         @db.Decimal(10, 2)
+  method          String?
+  provider        PaymentProvider @default(STRIPE)
+  status          PaymentStatus   @default(PENDING)
+  paidAt          DateTime?
+  gatewaySessionId String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  rentalOrderId String
+  rentalOrder   RentalOrder @relation(fields: [rentalOrderId], references: [id])
+
+  customerId String
+  customer   User   @relation("CustomerPayments", fields: [customerId], references: [id])
+
+  @@map("payments")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customerId String
+  customer   User   @relation("CustomerReviews", fields: [customerId], references: [id])
+
+  gearItemId String
+  gearItem   GearItem @relation(fields: [gearItemId], references: [id])
+
+  @@unique([customerId, gearItemId])
+  @@map("reviews")
+}
