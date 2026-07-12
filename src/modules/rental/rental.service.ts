@@ -1,6 +1,8 @@
-import { Prisma, RentalStatus } from '@prisma/client';
+import { Prisma, RentalStatus, RentalItem, GearItem } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../utils/ApiError';
+
+type TxClient = Prisma.TransactionClient;
 
 interface RentalItemInput {
   gearItemId: string;
@@ -30,7 +32,7 @@ const getDaysBetween = (start: Date, end: Date) => {
 const create = async (customerId: string, payload: CreateRentalInput) => {
   const days = getDaysBetween(payload.startDate, payload.endDate);
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: TxClient) => {
     let totalAmount = new Prisma.Decimal(0);
     const itemsData: {
       gearItemId: string;
@@ -107,7 +109,7 @@ const getOrderById = async (id: string, requester: { userId: string; role: strin
   if (requester.role === 'ADMIN') return order;
   if (requester.role === 'CUSTOMER' && order.customerId === requester.userId) return order;
   if (requester.role === 'PROVIDER') {
-    const ownsAnItem = order.items.some((i) => i.gearItem.providerId === requester.userId);
+    const ownsAnItem = order.items.some((i: RentalItem & { gearItem: GearItem }) => i.gearItem.providerId === requester.userId);
     if (ownsAnItem) return order;
   }
   throw ApiError.forbidden('You do not have access to this rental order.');
@@ -132,7 +134,7 @@ const updateStatusByProvider = async (orderId: string, providerId: string, newSt
   });
   if (!order) throw ApiError.notFound('Rental order not found.');
 
-  const ownsAnItem = order.items.some((i) => i.gearItem.providerId === providerId);
+  const ownsAnItem = order.items.some((i: RentalItem & { gearItem: GearItem }) => i.gearItem.providerId === providerId);
   if (!ownsAnItem) throw ApiError.forbidden('You do not have permission to update this order.');
 
   const allowedNext = RENTAL_TRANSITIONS[order.status];
@@ -144,7 +146,7 @@ const updateStatusByProvider = async (orderId: string, providerId: string, newSt
     );
   }
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: TxClient) => {
     if (newStatus === 'CANCELLED') {
       for (const item of order.items) {
         await tx.gearItem.update({
@@ -173,7 +175,7 @@ const cancelByCustomer = async (orderId: string, customerId: string) => {
     throw ApiError.badRequest('Only orders with status PLACED can be cancelled by the customer.');
   }
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: TxClient) => {
     const items = await tx.rentalItem.findMany({ where: { rentalOrderId: orderId } });
     for (const item of items) {
       await tx.gearItem.update({

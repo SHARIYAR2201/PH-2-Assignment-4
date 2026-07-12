@@ -1,10 +1,10 @@
-import { UserStatus } from '@prisma/client';
+import { User, UserStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../utils/ApiError';
 
 const getAllUsers = async () => {
   const users = await prisma.user.findMany({ orderBy: { createdAt: 'desc' } });
-  return users.map(({ password, ...rest }) => rest);
+  return users.map(({ password, ...rest }: User) => rest);
 };
 
 const updateUserStatus = async (id: string, status: UserStatus) => {

@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { RentalItem, GearItem } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { stripe } from '../../lib/stripe';
 import { env } from '../../config/env';
@@ -30,7 +31,7 @@ const createPaymentSession = async (customerId: string, rentalOrderId: string) =
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
-    line_items: order.items.map((item) => ({
+    line_items: order.items.map((item: RentalItem & { gearItem: GearItem }) => ({
       price_data: {
         currency: 'usd',
         product_data: { name: item.gearItem.title },
