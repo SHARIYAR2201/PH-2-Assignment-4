@@ -5,15 +5,18 @@ import morgan from 'morgan';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
+import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env';
 import { AppRoutes } from './routes';
 import { PaymentController } from './modules/payment/payment.controller';
 import { globalErrorHandler } from './middlewares/errorHandler';
 import { notFoundHandler } from './middlewares/notFound';
+import swaggerDocument from './docs/swagger.json';
 
 const app: Application = express();
 
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
+
 app.use(compression());
 app.use(cors({ origin: env.corsOrigin, credentials: true }));
 app.use(morgan(env.nodeEnv === 'development' ? 'dev' : 'combined'));
@@ -57,6 +60,8 @@ app.get('/api/payments/success', (_req: Request, res: Response) => {
 app.get('/api/payments/cancel', (_req: Request, res: Response) => {
   res.status(200).json({ success: false, message: 'Payment was cancelled.', data: null });
 });
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.use('/api', AppRoutes);
 
